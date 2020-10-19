@@ -62,6 +62,7 @@ show-matching-devlinks() {
 # if the path doesn't match it will try again after replacing the last directory with .*
 # e.g. /sys/bus/.*/modalias, then /sys/.*/modalias then /.*/modalias
 # (assumes you have installed the linux sources)
+# You can use TAB completion on the filename.
 show-sysfs-description() {
     emulate -LR zsh
     set -o extendedglob
@@ -78,6 +79,7 @@ show-sysfs-description() {
 	awk "/What:[[:space:]]*${${head:q}//\//\\/}.*\/${tail}/,/^[[:space:]]*\$/{print \$0}" ${file}
     done
 }
+compdef '_files -P /sys/ -W /sys/' show-sysfs-description
 # given arg regexp1 and optional arg regexp2, print linux source sysfs descriptions matching regex1
 # and with "What" field (i.e. path in /sys) matching regexp2
 search-sysfs-descriptions () {
@@ -90,6 +92,7 @@ search-sysfs-descriptions () {
 /^[[:space:]]*$/{if(flag==2){print accum \"\n----------------\"};accum=\"\";flag=0}"\
 	    ${docdir}/{stable,testing,obsolete}/*(.r)
 }
+
 # Search module descriptions for matches to the regexp argument for this function,
 # and return all matching info, e.g: search-modules wifi
 search-modules() {
@@ -115,6 +118,8 @@ show-cmdline() {
 }
 
 # For a given PID (1st arg), show contents of a file (2nd arg) in /proc
+# e.g. show-process-info 1234 status
+# You can use TAB completion for the PID and filename.
 show-process-info() {
     local pid;
     # Parse the arguments
@@ -151,7 +156,8 @@ If no arguments are given man page for /proc will be shown
 }
 compdef '_arguments "1:PID:_pids" "2:file:_files -W /proc/${words[$((${CURRENT}-1))]}/"' show-process-info
 
-# Show description of a standard linux directory (obtained from hier manpage)
+# Show description of a standard linux directory obtained from hier manpage,
+# You can use TAB completion on the directory name.
 describedir() {
     dir=${1-$(pwd)}
     dir=${1%/}
