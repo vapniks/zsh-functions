@@ -1,6 +1,6 @@
 # Show info about symlinks in /dev matching first argument (a regexp)
 # subsequent arguments specify what information to show.
-# e.g: show-matching-devlinks root devlink devnode mount symlink 
+# e.g: show-matching-devlinks root devlink devnode mount symlink
 show-matching-devlinks() {
     local devlink doneheader key devnode
     typeset -a keys devlinks
@@ -61,6 +61,7 @@ show-matching-devlinks() {
 # e.g: show-sysfs-description /sys/bus/usb/modalias
 # if the path doesn't match it will try again after replacing the last directory with .*
 # e.g. /sys/bus/.*/modalias, then /sys/.*/modalias then /.*/modalias
+# (assumes you have installed the linux sources)
 show-sysfs-description() {
     emulate -LR zsh
     set -o extendedglob
