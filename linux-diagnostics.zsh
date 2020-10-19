@@ -2,6 +2,12 @@
 # subsequent arguments specify what information to show.
 # e.g: show-matching-devlinks root devlink devnode mount symlink
 show-matching-devlinks() {
+    if [[ $# < 1 || $1 == "-h" || $1 == "--help" ]]; then
+	echo "Usage: show-matching-devlinks <REGEXP> [DEVLINK|DEVNODE|MOUNT|SYSLINK|..] ...
+Show info about symlinks in /dev matching <REGEX>. Fields of info to show can include
+those listed above, and any returned by udevadm info."
+	return 1
+    fi
     local devlink doneheader key devnode
     typeset -a keys devlinks
     typeset -A keyvals
@@ -64,6 +70,11 @@ show-matching-devlinks() {
 # (assumes you have installed the linux sources)
 # You can use TAB completion on the filename.
 show-sysfs-description() {
+    if [[ $# < 1 || $1 == "-h" || $1 == "--help" ]]; then
+	echo "Usage: show-sysfs-description <PATH>
+where <PATH> is a path to a file in /sys"
+	return 1
+    fi
     emulate -LR zsh
     set -o extendedglob
     local files1 head="${1:h}" tail="${1:t}" kernel="${$(uname -r)%%-*}"
@@ -83,22 +94,29 @@ compdef '_files -P /sys/ -W /sys/' show-sysfs-description
 # given arg regexp1 and optional arg regexp2, print linux source sysfs descriptions matching regex1
 # and with "What" field (i.e. path in /sys) matching regexp2
 search-sysfs-descriptions () {
-        local files1 desc="${1}" what="${2:-.*}" kernel="${$(uname -r)%%-*}"
-        local docdir="/usr/src/linux-source-${kernel}/linux-source-${kernel}/Documentation/ABI"
-        awk "BEGIN{flag=0;accum=\"\"}
+    if [[ $# < 1 || $1 == "-h" || $1 == "--help" ]]; then
+	echo "Usage: search-sysfs-description <REGEX1> [<REGEX2>]
+where <REGEX1> is a regexp to match description in sysfs documentation,
+and <REGEX2> is an optional regexp to limit results to those matching paths in /sys"
+	return 1
+    fi
+    local files1 desc="${1}" what="${2:-.*}" kernel="${$(uname -r)%%-*}"
+    local docdir="/usr/src/linux-source-${kernel}/linux-source-${kernel}/Documentation/ABI"
+    awk "BEGIN{flag=0;accum=\"\"}
 /^What:[[:space:]]+.*${what//\//\\/}/{accum=\"\";flag=1}
 /[^[:space:]]/{if(flag>0){accum=accum \"\n\" \$0}}
 /${desc}/{if(flag>0){flag=2}}
 /^[[:space:]]*$/{if(flag==2){print accum \"\n----------------\"};accum=\"\";flag=0}"\
-	    ${docdir}/{stable,testing,obsolete}/*(.r)
+	${docdir}/{stable,testing,obsolete}/*(.r)
 }
 
 # Search module descriptions for matches to the regexp argument for this function,
 # and return all matching info, e.g: search-modules wifi
 search-modules() {
-    if [[ "${#}" < 1  ]]; then
-	echo "Usage: search-modules <REGEXP>"
-	return
+    if [[ $# < 1 || $1 == "-h" || $1 == "--help" ]]; then
+	echo "Usage: search-modules <REGEXP>
+list kernel modules with descriptions matching <REGEXP>"
+	return 1
     fi
     matches=()
     for mod in /lib/modules/$(uname -r)/**/*.ko; do
@@ -114,6 +132,11 @@ search-modules() {
 # Show command lines used to start processes matching a pattern (argument to this function).
 # With no argument show command lines of all processes.
 show-cmdline() {
+    if [[ $1 == "-h" || $1 == "--help" ]]; then
+	echo "Usage: show-cmdline [<REGEX>]
+show command-line used to invoke processes matching <REGEXP>"
+	return 1
+    fi
     ps -feww|grep "$1"|grep -v grep|awk -F" *" '{$1=$2=$3=$4=$5=$6=$7="";print $0}'|sed -e 's/^ *//g' -e 's/ *$//g'
 }
 
@@ -123,12 +146,12 @@ show-cmdline() {
 show-process-info() {
     local pid;
     # Parse the arguments
-    if [[ $1 == "--help" ]] || [[ $1 == "-h" ]]; then
-        echo "Usage: show-process-info PID [ FILE ]
+    if [[ $1 == "--help" || $1 == "-h" ]]; then
+        echo "Usage: show-process-info <PID> [<FILE>]
        show-process-info [ --help | -h ]
 
-where PID  := process id number (can be found with pgrep PROGNAME)
-      FILE := file containing info to view (use tab completion).
+where <PID>  := process id number (can be found with pgrep PROGNAME)
+      <FILE> := file containing info to view (use tab completion).
 
 If no arguments are given man page for /proc will be shown
 (explaining the contents of the various files)."
@@ -159,6 +182,11 @@ compdef '_arguments "1:PID:_pids" "2:file:_files -W /proc/${words[$((${CURRENT}-
 # Show description of a standard linux directory obtained from hier manpage,
 # You can use TAB completion on the directory name.
 describedir() {
+    if [[ $# < 1 || $1 == "-h" || $1 == "--help" ]]; then
+	echo "Usage: describedir <DIR>
+show description of <DIR> in the standard linux directory hierarchy"
+	return 1
+    fi
     dir=${1-$(pwd)}
     dir=${1%/}
     man --pager=cat hier | sed -rn "\:^[\t ]*${dir}([\t ]|$):,\:^ *$:p" | grep -v '^[ \t]*$'
