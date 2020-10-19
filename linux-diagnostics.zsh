@@ -91,7 +91,7 @@ search-sysfs-descriptions () {
 	    ${docdir}/{stable,testing,obsolete}/*(.r)
 }
 # Search module descriptions for matches to the regexp argument for this function,
-# and return all matching info, e.g: search-modules "rtl81[0-9][0-9]"
+# and return all matching info, e.g: search-modules wifi
 search-modules() {
     if [[ "${#}" < 1  ]]; then
 	echo "Usage: search-modules <REGEXP>"
