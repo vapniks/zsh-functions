@@ -1,3 +1,11 @@
 * zsh-functions
 Various zsh functions grouped by type of task
 
+** linux-diagnostics.zsh
+| show-matching-devlinks    | show info about symlinks in /dev matching a regexp                                         |
+| show-sysfs-description    | print linux source documentation about a file in /sys                                      |
+| search-sysfs-descriptions | print linux source documentation for files in /sys with descriptions matching a regexp     |
+| search-modules            | search linux module descriptions                                                           |
+| show-cmdline              | print command lines used to start processes matching a pattern                             |
+| show-process-info         | print the contents of a file in the /proc directory for a given PID (completes PID & file) |
+| describedir               | show description of a standard linux directory (with completion)                           |
