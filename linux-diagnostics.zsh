@@ -198,7 +198,7 @@ _describedir() {
 compdef _describedir describedir
 
 # If symtree is installed, define this wrapper function to unmangle the symbols
-if [[ $(command -v symtree) && $(command -v gawk) ]]; then
+if [[ $(command -v symtree) && $(command -v gawk) && $(command -v c++filt) ]]; then
     function show-external-symbols() {
 	if [[ $# < 1 || $1 == "-h" || $1 == "--help" ]]; then
 	    echo "Usage: show-external-symbols <ELF>...
