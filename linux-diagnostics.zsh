@@ -198,14 +198,14 @@ _describedir() {
 compdef _describedir describedir
 
 # If symtree is installed, define this wrapper function to unmangle the symbols
-if [[ $(command -v symtree) ]]; then
+if [[ $(command -v symtree) && $(command -v gawk) ]]; then
     function show-external-symbols() {
-	if [[ $# < 1 ]]; then
-	    echo "Usage: show-external-symbols <ELF>
-where <ELF> is an executable binary or shared object (.so) in ELF format."
+	if [[ $# < 1 || $1 == "-h" || $1 == "--help" ]]; then
+	    echo "Usage: show-external-symbols <ELF>...
+where each <ELF> arg is an executable binary or shared object (.so) in ELF format."
 	    return 1
 	fi
-	symtree $1|awk '/^[[:space:]]+/{split($3,symbols,",");printf("%s %s\n",$1,$2);for(i in symbols){cmd="c++filt " symbols[i];cmd|getline sym;print "\t" sym ;close(cmd)};print ""}'
+	symtree $@|gawk '/^[^[:space:]]/{print $0};/^[[:space:]]+/{split($3,symbols,",");printf("%s %s\n",$1,$2);for(i in symbols){cmd="c++filt " symbols[i];cmd|getline sym;print "\t" sym ;close(cmd)};print ""}'
     }
     compdef '_files' show-external-symbols
 fi
