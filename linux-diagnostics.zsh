@@ -200,6 +200,11 @@ compdef _describedir describedir
 # If symtree is installed, define this wrapper function to unmangle the symbols
 if [[ $(command -v symtree) ]]; then
     function show-external-symbols() {
+	if [[ $# < 1 ]]; then
+	    echo "Usage: show-external-symbols <ELF>
+where <ELF> is an executable binary or shared object (.so) in ELF format."
+	    return 1
+	fi
 	symtree $1|awk '/^[[:space:]]+/{split($3,symbols,",");printf("%s %s\n",$1,$2);for(i in symbols){cmd="c++filt " symbols[i];cmd|getline sym;print "\t" sym ;close(cmd)};print ""}'
     }
     compdef '_files' show-external-symbols
