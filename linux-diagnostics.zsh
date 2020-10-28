@@ -72,7 +72,8 @@ those listed above, and any returned by udevadm info."
 show-sysfs-description() {
     if [[ $# < 1 || $1 == "-h" || $1 == "--help" ]]; then
 	echo "Usage: show-sysfs-description <PATH>
-where <PATH> is a path to a file in /sys"
+where <PATH> is a path to a file in /sys.
+Shows linux source documentation for <PATH>."
 	return 1
     fi
     emulate -LR zsh
@@ -189,9 +190,15 @@ compdef '_arguments "1:PID:_pids" "2:file:_files -W /proc/${words[$((${CURRENT}-
 # You can use TAB completion on the directory name.
 describedir() {
     if [[ $# < 1 || $1 == "-h" || $1 == "--help" ]]; then
-	echo "Usage: describedir <DIR>
-show description of <DIR> in the standard linux directory hierarchy"
+	echo "Usage: describedir [-h|--help] [-a|--all] <DIR>
+show description of <DIR> in the standard linux directory hierarchy.
+Options:
+ -h,--help  show this help
+ -a,--all   show hier manpage, i.e. describe all directories"
 	return 1
+    fi
+    if [[ $1 == "-a" || $1 == "--all" ]]; then
+	man hier
     fi
     dir=${1-$(pwd)}
     dir=${1%/}
@@ -215,3 +222,79 @@ where each <ELF> arg is an executable binary or shared object (.so) in ELF forma
     }
     compdef '_files' show-external-symbols
 fi
+
+function describe-runtime-parameter() {
+    if [[ $# < 1 || $1 == "-h" || $1 == "--help" ]]; then
+	echo "Usage: describe-runtime-parameter <PARAM>
+show linux source documentation for kernel runtime parameter <PARAM> (as listed by sysctl)"
+	return 1
+    fi
+    local kver="$(uname -r|cut -d- -f1)"
+    local docdir="/usr/src/linux-source-${kver}/linux-source-${kver}/Documentation/sysctl"
+    local docfile="${docdir}/${1%%.*}.txt"
+    local doctxt=
+    case "${1%%.*}"; in
+	(kernel|vm)
+	    doctxt=$(cat "${docfile}"|\
+			 sed -nr "N;/^\n(([^\n]+(,? (&|and)|,)|-) )?([a-z.-_]*\.)?${1##*.}:?/,/^===*/P;D"|\
+			 head -n -2|tail -n +2)
+	    ;;
+	(user)
+	    doctxt=$(cat "${docfile}"|\
+			 sed -nr "{N;/^- ${1##*.}/,/^- /P;D}"|\
+			 head -n -2|tail -n +1)
+	    if [[ ! "${doctxt}" =~ $'\n' ]]; then
+	    	doctxt=$(cat "${docfile}"|sed -nr "/^- ${1##*.}/,$ p"|tail -n +1)
+	    fi
+	    ;;
+	(net)
+	    if [[ "${1}" =~ '\.(ipv4|ipv6|bridge|sctp|unix)\.' ]]; then
+		docfile="${docdir%/sysctl}/networking/ip-sysctl.txt"
+		doctxt=$(cat "${docfile}"|\
+			     sed -nr "\@^(${${${1#*.}#*.}//.//}|${1##*.})\>@,\@^[a-z/]@p"|\
+			     head -n -2)
+	    else
+		doctxt=$(cat "${docfile}"|\
+			     sed -nr "/^([a-z._-]+ and )?\<${1##*.}\>/,/^---*/p;N;/^([a-z._-]+ and )?\<${1##*.}\>[^\n]*\n---*/!D"|\
+			     head -n -3)
+	    fi
+	    ;;
+	(fs)
+	    if [[ "${1}" =~ '\.(binfmt_misc)\.' ]]; then
+		doctxt=$(cat "${docdir%/sysctl}/admin-guide/binfmt-misc.rst")
+	    elif [[ "${1}" =~ '\.(mqueue)\.' ]]; then
+		doctxt=$(cat "${docfile}"|sed -nr "\@^[0-9]\. /proc/sys/fs/mqueue@,\@^[0-9]\.@p"|\
+			     head -n -2)
+	    elif [[ "${1}" =~ '\.(epoll)\.' ]]; then
+		doctxt=$(cat "${docfile}"|sed -nr '\@^[0-9]\. /proc/sys/fs/epoll@,$p')		
+	    else
+		doctxt=$(cat "${docfile}"|\
+			     sed -nr "{N;/^\n([^\n]+(,? (&|and)|,) )?${1#*.}:?/,/^==*/P;D}"|\
+			     head -n -2|tail -n +2)
+	    fi
+	    ;;
+    esac
+    if [[ -n ${doctxt} ]]; then
+	echo ${doctxt}
+    else
+	echo "No documentation found for ${1}"
+    fi
+}
+
+describe-device() {
+    if [[ $# < 1 || $1 == "-h" || $1 == "--help" ]]; then
+	echo "Usage: describe-device [-h|--help] [-a|--all] <DEV>
+show linux source documentation for device in /dev
+Options:
+ -h,--help   show this help
+ -a,--all    view documentation for all devices with ${PAGER}"
+	return 1
+    fi
+    local kver="$(uname -r|cut -d- -f1)"
+    local doc="/usr/src/linux-source-${kver}/linux-source-${kver}/Documentation/admin-guide/devices.txt"
+    if [[ $1 == "-a" || $1 == "--all" ]]; then
+	${PAGER} ${doc}
+    else
+	cat ${doc}|grep ${1}	
+    fi
+}
