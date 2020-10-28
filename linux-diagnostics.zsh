@@ -82,6 +82,12 @@ where <PATH> is a path to a file in /sys"
     files1=$(eval "grep -E 'What:.*/${tail}[[:space:]]*$' ${docdir}/{stable,testing,obsolete}/*(.r)")
     typeset -aU docfiles=("${(f)files1}")
     docmatches=(${(M)docfiles:#*What:[[:space:]]#${head}*/${tail}})
+    if [[ -r $1 ]]; then
+	local value="${1}: $(cat ${1})"
+	if [[ ${#value} -lt $COLUMNS ]]; then
+	    echo "${value}\n"
+	fi
+    fi
     while [[ -z ${docmatches} && ! ${head} = / ]]; do
 	head=${head:h}
 	docmatches=(${(M)docfiles:#*What:[[:space:]]#${head}*/${tail}})
