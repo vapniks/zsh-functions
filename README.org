@@ -10,7 +10,7 @@ Various zsh functions grouped by type of task
 | show-process-info         | print the contents of a file in the /proc directory for a given PID (completes PID & file) |
 | describedir               | show description of a standard linux directory (with completion)                           |
 ** fzf-apropos
-This file defines a widget for browsing manpages using fzf (https://github.com/junegunn/fzf)
+This file defines a widget for browsing manpages using fzf (https://github.com/junegunn/fzf)\\
 Add the file to one of the directories in your fpath, and add the following lines to your .zshrc
 #+BEGIN_SRC sh
 autoload -Uz fzf-apropos
@@ -19,6 +19,6 @@ bindkey "<KEY>" fzf-apropos
 #+END_SRC
 (for some <KEY> of your choice).
 
-Options for fzf can be set with: zstyle ':fzf-apropos:' options "<OPTIONS>"\
-By default this is "--height=100% --preview-window=down:wrap"\
-For more info see: fzf --help
+Options for fzf can be set with: zstyle ':fzf-apropos:' options "<OPTIONS>"\\
+By default this is "--height=100% --preview-window=down:wrap"
+
