@@ -1,0 +1,24 @@
+# Widget for browsing command manpages. Requires fzf: https://github.com/junegunn/fzf
+() {
+    local fzfopts
+    zstyle -s ':fzf-apropos:' options fzfopts || fzfopts="--height=100% --preview-window=down:wrap"
+    local a2m=${TMPDIR}/apropos2man.sh
+    if [[ ! -a ${a2m} ]]; then
+        echo "#!/bin/sh" > ${a2m}
+        echo "man -P cat \$(echo \"\$@\"|awk '{print \$1}')|awk 'BEGIN{x=0};/^[A-Z]/{x=1};NR==1{x=0};/^NAME/{x=0};/.*/{if(x==1){print \$0}}'"
+	>> ${a2m}
+        chmod +x ${a2m}
+        echo "Created ${a2m}"
+    fi
+    orig_lbuffer=$LBUFFER
+    orig_rbuffer=$RBUFFER
+    {
+	read-from-minibuffer "Search term: "
+	(( $? )) && return
+	orig_lbuffer+=$(eval "apropos ${REPLY} | fzf $fzfopts --preview='${TMPDIR}/apropos2man.sh {}'|awk '{print \$1}'")
+	orig_lbuffer+=" "
+    } always {
+	LBUFFER=$orig_lbuffer
+	RBUFFER=$orig_rbuffer
+    }
+}
