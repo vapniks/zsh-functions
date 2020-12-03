@@ -1,24 +1,20 @@
 # Widget for browsing command manpages. Requires fzf: https://github.com/junegunn/fzf
+# To browse all syscall manpages, at the prompt enter: -s 2 '.*'
 () {
-    local fzfopts
+    local fzfopts response orig_buffer
+    typeset -a response
     zstyle -s ':fzf-apropos:' options fzfopts || fzfopts="--height=100% --preview-window=down:wrap"
-    local a2m=${TMPDIR}/apropos2man.sh
-    if [[ ! -a ${a2m} ]]; then
-        echo "#!/bin/sh" > ${a2m}
-        echo "man -P cat \$(echo \"\$@\"|awk '{print \$1}')|awk 'BEGIN{x=0};/^[A-Z]/{x=1};NR==1{x=0};/^NAME/{x=0};/.*/{if(x==1){print \$0}}'"
-	>> ${a2m}
-        chmod +x ${a2m}
-        echo "Created ${a2m}"
-    fi
-    orig_lbuffer=$LBUFFER
-    orig_rbuffer=$RBUFFER
+    orig_buffer=$BUFFER
     {
-	read-from-minibuffer "Search term: "
+	read-from-minibuffer "Apropos command: " "apropos ${NUMERIC+-s ${NUMERIC} }"
 	(( $? )) && return
-	orig_lbuffer+=$(eval "apropos ${REPLY} | fzf $fzfopts --preview='${TMPDIR}/apropos2man.sh {}'|awk '{print \$1}'")
-	orig_lbuffer+=" "
+	response=$(eval "${REPLY} 2>&1")
+	if [[ $? = 0 ]]; then
+	    eval "${REPLY} | fzf ${fzfopts} --preview='man -s {2} {1}' -d '[ ()]' --bind='enter:execute(man -s {2} {1}),alt-v:execute(man -s {2} {1})'"
+	else
+	    zle -M "fzf-apropos: No matches for ${REPLY}"
+	fi
     } always {
-	LBUFFER=$orig_lbuffer
-	RBUFFER=$orig_rbuffer
+	BUFFER=$orig_buffer
     }
 }
