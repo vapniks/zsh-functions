@@ -223,7 +223,7 @@ where each <ELF> arg is an executable binary or shared object (.so) in ELF forma
     compdef '_files' show-external-symbols
 fi
 
-function describe-runtime-parameter() {
+describe-runtime-parameter() {
     if [[ $# < 1 || $1 == "-h" || $1 == "--help" ]]; then
 	echo "Usage: describe-runtime-parameter <PARAM>
 show linux source documentation for kernel runtime parameter <PARAM> (as listed by sysctl)"
@@ -298,3 +298,4 @@ Options:
 	cat ${doc}|grep ${1}	
     fi
 }
+
