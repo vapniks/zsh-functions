@@ -101,7 +101,7 @@ br2() {
     emulate -L zsh
     set -o extendedglob
     if [[ -n $KITTY_WINDOW_ID ]]; then
-	local ID=$(ksplit -r 8 -f 1 "cat $BROOT_CMD_HISTORY |fzf --no-multi --preview-window hidden --bind='enter:execute($BROOT --send my_broot -c {}),alt-enter:execute($BROOT --send my_broot -c {q} && echo {q} >> $BROOT_CMD_HISTORY)+reload(cat $BROOT_CMD_HISTORY),alt-e:replace-query,alt-up:replace-query'")
+	local ID=$(ksplit -r 8 -l vertical -f 1 "cat $BROOT_CMD_HISTORY |fzf --no-multi --preview-window hidden --bind='enter:execute($BROOT --send my_broot -c {}),alt-enter:execute($BROOT --send my_broot -c {q} && echo {q} >> $BROOT_CMD_HISTORY)+reload(cat $BROOT_CMD_HISTORY),alt-e:replace-query,alt-up:replace-query'")
 	~/programs/broot --listen my_broot ${=@}
 	kitty @ close-window -m id:${ID//(#b)(#s)[^0-9]#([0-9]##)*/${match[1]}}
     else
