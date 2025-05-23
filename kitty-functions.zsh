@@ -101,9 +101,13 @@ br2() {
     emulate -L zsh
     set -o extendedglob
     if [[ -n $KITTY_WINDOW_ID ]]; then
-	local ID=$(ksplit -r 8 -l vertical -f 1 "cat $BROOT_CMD_HISTORY |fzf --no-multi --preview-window hidden --bind='enter:execute($BROOT --send my_broot -c {}),alt-enter:execute($BROOT --send my_broot -c {q} && echo {q} >> $BROOT_CMD_HISTORY)+reload(cat $BROOT_CMD_HISTORY),alt-e:replace-query,alt-up:replace-query'")
-	~/programs/broot --listen my_broot ${=@}
-	kitty @ close-window -m id:${ID//(#b)(#s)[^0-9]#([0-9]##)*/${match[1]}}
+	local ID=$(ksplit -r 8 -l vertical -f 1 "cat $BROOT_CMD_HISTORY |fzf --no-multi --preview-window hidden --bind='enter:execute($BROOT --send my_broot -c {}),alt-enter:execute($BROOT --send my_broot -c {};kitty @ focus-window -m id:$KITTY_WINDOW_ID),alt-up:execute($BROOT --send my_broot -c {q} && echo {q} >> $BROOT_CMD_HISTORY)+reload(cat $BROOT_CMD_HISTORY),alt-e:replace-query' --header='ctrl-shift-]=change window,RET=run selection,alt-RET=run selection & change window,alt-e=copy to query,alt-up=copy query to broot & history'; kitty @ close-window --self")
+	# make sure ID is a number; sometimes ksplit returns "False" before ID, not sure why
+	ID=${ID//(#b)(#s)[^0-9]#([0-9]##)*/${match[1]}} 
+	if [[ ${@} == *(--cmd|-c)\ * ]] kitty @ focus-window -m id:$KITTY_WINDOW_ID
+        ~/programs/broot --listen my_broot ${=@}
+	if [[ -n $(kitty @ ls | jq ".[].tabs[].windows[]|select(.id==${ID})") ]] \
+	       kitty @ close-window -m id:$ID
     else
 	br ${=@}
     fi
