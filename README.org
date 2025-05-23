@@ -9,6 +9,11 @@ Various zsh functions grouped by type of task
 | show-cmdline              | print command lines used to start processes matching a pattern                             |
 | show-process-info         | print the contents of a file in the /proc directory for a given PID (completes PID & file) |
 | describedir               | show description of a standard linux directory (with completion)                           |
+** kitty-functions.zsh
+| iplot          | plot a graph in the kitty terminal using gnuplot, e.g: iplot "sin(x)"                         |
+| lsof-ipc-graph | display a graph showing FIFO and UNIX interprocess communication in the kitty terminal window |
+| ksplit         | create new kitty windows in the current tab and run different command lines in each           |
+| br2            | run broot with fzf running in a separate window for selecting broot commands from history     |
 ** fzf-apropos
 This file defines a widget for browsing manpages using fzf (https://github.com/junegunn/fzf)\\
 Add the file to one of the directories in your fpath, and add the following lines to your .zshrc

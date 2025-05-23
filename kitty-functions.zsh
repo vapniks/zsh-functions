@@ -1,4 +1,6 @@
 # Handy functions for use with the kitty terminal emulator
+
+# Plot a graph in the kitty terminal using gnuplot, e.g: iplot "sin(x)"
 function iplot {
     cat <<EOF | gnuplot
 set terminal pngcairo enhanced font 'Fira Sans,10'
@@ -10,7 +12,7 @@ plot $@
 set output '/dev/null'
 EOF
 }
-
+# Display a graph showing FIFO and UNIX interprocess communication in the kitty terminal window.
 function lsof-ipc-graph () {
     trap 'sudo pkill lsof && lsof-ipc-graph @' SIGINT
     if [[ ! $@ == *@* ]]; then
@@ -93,6 +95,8 @@ Options:
 }
 
 # Launch broot in current window, and fzf for selecting broot command in another window
+# This assumes $BROOT contain the path to the broot executable, and $BROOT_CMD_HISTORY contains the path to
+# a file containing broot commands.
 br2() {
     emulate -L zsh
     set -o extendedglob
