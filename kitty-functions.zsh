@@ -101,6 +101,17 @@ br2() {
     emulate -L zsh
     set -o extendedglob
     if [[ -n $KITTY_WINDOW_ID ]]; then
+	if [[ -n $BROOT_CMD_HISTORY ]]; then
+	    touch $BROOT_CMD_HISTORY
+	else
+	    print - "Error: \$BROOT_CMD_HISTORY unset!"
+	    return 1
+	fi
+	if [[ ! -w $BROOT_CMD_HISTORY ]]; then
+	    print - "Error: $BROOT_CMD_HISTORY not writable!"
+	    return 1
+	fi
+	awk '!seen[$0]' $BROOT_CMD_HISTORY > ${TMPDIR}/broot_cmds && mv ${TMPDIR}/broot_cmds $BROOT_CMD_HISTORY
 	local ID=$(ksplit -r 8 -l vertical -f 1 "cat $BROOT_CMD_HISTORY |fzf --no-multi --preview-window hidden --bind='enter:execute($BROOT --send my_broot -c {}),alt-enter:execute($BROOT --send my_broot -c {};kitty @ focus-window -m id:$KITTY_WINDOW_ID),alt-up:execute($BROOT --send my_broot -c {q} && echo {q} >> $BROOT_CMD_HISTORY)+reload(cat $BROOT_CMD_HISTORY),alt-e:replace-query' --header='ctrl-shift-]=change window,RET=run selection,alt-RET=run selection & change window,alt-e=copy to query,alt-up=copy query to broot & history'; kitty @ close-window --self")
 	# make sure ID is a number; sometimes ksplit returns "False" before ID, not sure why
 	ID=${ID//(#b)(#s)[^0-9]#([0-9]##)*/${match[1]}} 
