@@ -104,11 +104,11 @@ br2() {
 	if [[ -n $BROOT_CMD_HISTORY ]]; then
 	    touch $BROOT_CMD_HISTORY
 	else
-	    print - "Error: \$BROOT_CMD_HISTORY unset!"
+	    print - "br2 error: \$BROOT_CMD_HISTORY unset\!"
 	    return 1
 	fi
 	if [[ ! -w $BROOT_CMD_HISTORY ]]; then
-	    print - "Error: $BROOT_CMD_HISTORY not writable!"
+	    print - "br2 error: $BROOT_CMD_HISTORY not writable\!"
 	    return 1
 	fi
 	awk '!seen[$0]' $BROOT_CMD_HISTORY > ${TMPDIR}/broot_cmds && mv ${TMPDIR}/broot_cmds $BROOT_CMD_HISTORY
