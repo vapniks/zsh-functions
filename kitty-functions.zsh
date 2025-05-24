@@ -101,10 +101,14 @@ br2() {
     emulate -L zsh
     set -o extendedglob
     if [[ -n $KITTY_WINDOW_ID ]]; then
+	if [[ -z $BROOT ]]; then
+	    print - "br2 error: \$BROOT unset\! Set it to the path to your broot executable."
+	    return 1
+	fi
 	if [[ -n $BROOT_CMD_HISTORY ]]; then
 	    touch $BROOT_CMD_HISTORY
 	else
-	    print - "br2 error: \$BROOT_CMD_HISTORY unset\!"
+	    print - "br2 error: \$BROOT_CMD_HISTORY unset\! Set it to the path to a writable file for storing broot command history."
 	    return 1
 	fi
 	if [[ ! -w $BROOT_CMD_HISTORY ]]; then
