@@ -44,9 +44,9 @@
 # the note, or you can use ^X^S or ^X^W as usual (ZZ in vicmd mode).
 # To cancel press ^C, or whatever key you have bound to send-break.
 
-# The application is configured by five zstyles, all using the context
-# ":sticky-note".  The first three styles are "notefile", "backupfile",
-# and "maxnotes" to name the files in which notes are stored, and the
+# The application is configured by six zstyles, all using the context
+# ":sticky-note".  The zstyles "notefile", "backupfile", and "maxnotes"
+# are used to name the files in which notes are stored, and the
 # maximum number of notes to retain. The -e, -d & -C options only affect
 # notes stored in the notefile, not the backupfile, so you can retrieve
 # notes that are deleted or altered by mistake. If you don't want to
@@ -55,8 +55,10 @@
 #   zstyle :sticky-note notefile ~/.zsticky
 #   zstyle :sticky-note backupfile ~/.zsticky.backup
 #   zstyle :sticky-note maxnotes 1000
-# The other two styles; "theme" and "autocolour" are used for controlling
-# the appearance of notes, as explained below.
+# The "prompt" zstyle defines a prompt string to use in vared when creating
+# a new note. By default it is set to "Note %h:" (%h expands to the index of
+# the new note). The other two styles; "theme" and "autocolour" are used for
+# controlling the appearance of notes, as explained below.
 
 # 3 methods are used to control the appearance of notes in the following
 # order of precedence:
@@ -90,7 +92,8 @@
 # For backwards compatibility with an earlier version, the notefile may
 # also be named by the STICKYFILE variable (defaults to $HOME/.zsticky).
 # The number of notes stored may be given by STICKYSIZE (1000).
-# The backupfile may be given in STICKYBACKUPFILE.
+# The backupfile may be given in STICKYBACKUPFILE, and the prompt string
+# may be given in STICKYPROMPT.
 
 # Notes:
 # You can use sticky-note in combination with the zsh/sched module 
@@ -112,11 +115,13 @@ setopt nobanghist extendedhistory histignoredups noflowcontrol extendedglob loca
 local STICKYFILE=${STICKYFILE:-$HOME/.zsticky}
 local STICKYBACKUPFILE=${STICKYBACKUPFILE-$HOME/.zsticky.backup}
 local STICKYSIZE=${STICKYSIZE:-1000}
-local sticky stickyfile stickybackupfile stickysize
+local STICKYPROMPT=${STICKYPROMPT-"Note %h:"}
+local sticky stickyfile stickybackupfile stickysize stickyprompt
 
 zstyle -s :sticky-note notefile stickyfile || stickyfile=$STICKYFILE
 zstyle -s :sticky-note backupfile stickybackupfile || stickybackupfile=$STICKYBACKUPFILE
 zstyle -s :sticky-note maxnotes stickysize || stickysize=$STICKYSIZE
+zstyle -s :sticky-note prompt stickyprompt || stickyprompt=$STICKYPROMPT
 # Set up keybindings (adapted from "zed")
 if ! bindkey -M sticky >& /dev/null; then
     bindkey -N sticky main
@@ -526,7 +531,7 @@ else # CREATE NOTE
     # Without this line, pressing Ctrl+c will truncate the $stickyfile
     trap "fc -W $stickyfile && zle_highlight=($zle_highlight_old) && break" SIGINT SIGQUIT SIGHUP
     # Edit a new sticky note and add it to the stickyfile
-    while vared -h -e -p "%{$theme[newcolor]%}" -M sticky -m sticky-vicmd sticky; do
+    while vared -h -e -p "${stickyprompt}%{$theme[newcolor]%}" -M sticky -m sticky-vicmd sticky; do
 	{
 	    if [[ -n "${sticky}" ]]; then
 		local ncolour="${theme[newcolor]}"
