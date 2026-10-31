@@ -501,7 +501,7 @@ fi
 # When invoked as a command with the -e option edit $STICKYFILE.
 if [[ -n ${e_opt} ]]; then
     trap 'return 1' SIGINT SIGQUIT SIGHUP
-    ${=${FCEDIT:-${EDITOR:-vi}}} "${stickyfile}"
+    ${=${FCEDIT:-${EDITOR:-zed}}} "${stickyfile}"
     return $?
 fi
 # Invoked as a command without -e option, behave like zed, but write a history file
