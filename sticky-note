@@ -36,6 +36,8 @@
 #   zle -N sticky-note-edit sticky-note
 # You could assign this widget to a keybinding, e.g:
 #   bindkey '^X^E' sticky-note-edit
+# The editor is obtained from FCEDIT or if that is unset then EDITOR.
+# (Note: to avoid problems do not use FCEDIT="zed -h", instead use FCEDIT="zed").
 #
 # Otherwise, invoke the line editor with the previous notes available
 # as an editor history.  Two quick taps on the return/enter key finish
@@ -142,20 +144,9 @@ sticky-note-vared-cancel() {
     BUFFER=''
     zle .accept-line
 }
-# It's not recommended to use zed for editing history for zsh versions <=5.9.2 since on return
-# HISTSIZE is set to the size of the history file that was edited and the internal history 
-# gets truncated to that many lines. A more serious problem is that if you call send-break 
-# by pressing "^G" inside zed then the history file you were editing gets truncated to a single
-# line. The following function fixes the latter problem when used instead of send-break and when
-# ZED_NO_HIST is set.
-zed-safe-break() {
-    [[ -n $ZED_NO_HIST ]] && unset HISTFILE
-    zle .send-break
-}
 # Change send-break keybindings to safe versions when editing sticky notes.
 sticky-swap-keys sticky send-break sticky-note-vared-cancel
 sticky-swap-keys sticky-vicmd send-break sticky-note-vared-cancel
-sticky-swap-keys zed send-break zed-safe-break
 
 local USAGE="Usage: sticky-note [OPTION]...
 Where [OPTION]s can be:
@@ -348,7 +339,7 @@ sticky-note-list() {
     fi
 }
 
-# Function to change colour of selected notes 
+# Function to change colour of selected notes.
 # Assumes ${matched_nums[@]} is already defined as an array of indices of notes to be changed,
 # and $Ch_arg contains the name of the new colour.
 sticky-note-change-colour() {
@@ -510,14 +501,8 @@ fi
 # When invoked as a command with the -e option edit $STICKYFILE.
 if [[ -n ${e_opt} ]]; then
     trap 'return 1' SIGINT SIGQUIT SIGHUP
-    local ZED_NO_HIST=1 oldhistsize=$HISTSIZE editor_status=1
-    {
-        ${=${FCEDIT:-${EDITOR:-vi}}} "${stickyfile}"
-        editor_status=$?
-    } always {
-        HISTSIZE=$oldhistsize
-    }
-    return $editor_status
+    ${=${FCEDIT:-${EDITOR:-vi}}} "${stickyfile}"
+    return $?
 fi
 # Invoked as a command without -e option, behave like zed, but write a history file
 fc -ap $stickyfile $stickysize $stickysize
