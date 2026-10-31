@@ -1,0 +1,572 @@
+#!/bin/zsh -fi
+# A zsh sticky-note ("post-it") application.  Load this file as a function:
+#    autoload -Uz sticky-note
+#
+# It may then be bound as a widget:
+#    zle -N sticky-note
+# And/or run as a command:
+#    sticky-note -h            (show options)
+#    sticky-note -b            (install keymaps and keybindings)
+#    sticky-note               (create a new sticky note)
+#    sticky-note -c COLOUR     (create a new sticky note with a specific background colour)
+#    sticky-note -l ...        (list sticky notes)
+#    sticky-note -d ...        (delete sticky notes)
+#    sticky-note -C COLOUR ... (change colour of sticky notes)
+#    sticky-note -e            (edit sticky notes)
+# The -b option is like "zed -b": it installs keymaps/bindings only.
+# Use the -l option to list previous sticky notes, the -d option to delete
+# them, and the -C option and COLOUR argument (not to be confused with
+# the -c option) to change their colour. In the case of -d & -C the notes
+# are displayed and the user is prompted before they are deleted or recoloured.
+# For all of those three options (-l,-d & -C), extra options from the "fc -l"
+# command can be supplied, for selecting which notes to display/delete/recolour.
+# E.g. "sticky-note -l -m '*foo*' 10 20" will list only notes with indices
+# between 10 & 20 containing 'foo'.
+# You may also use the options "-c COLOUR" and "-B" to select only notes
+# of a specific background colour or blinking text.
+# If sticky-note is run from inside a widget, the cursor is moved to the
+# top left of the terminal before display and returned to its original position
+# after display.  The -l option is implicitly added when sticky-note is called
+# from zle-line-init without a -d or -C option, to avoid inadvertently trapping
+# the user inside the note editor.
+#
+# Use the -e option to edit the file containing the notes (see below),
+# or invoke a widget named sticky-note-edit which is set to sticky-note
+# like this:
+#   zle -N sticky-note-edit sticky-note
+# You could assign this widget to a keybinding, e.g:
+#   bindkey '^X^E' sticky-note-edit
+#
+# Otherwise, invoke the line editor with the previous notes available
+# as an editor history.  Two quick taps on the return/enter key finish
+# the note, or you can use ^X^S or ^X^W as usual (ZZ in vicmd mode).
+# To cancel press ^C, or whatever key you have bound to send-break.
+
+# The application is configured by five zstyles, all using the context
+# ":sticky-note".  The first three styles are "notefile", "backupfile",
+# and "maxnotes" to name the files in which notes are stored, and the
+# maximum number of notes to retain. The -e, -d & -C options only affect
+# notes stored in the notefile, not the backupfile, so you can retrieve
+# notes that are deleted or altered by mistake. If you don't want to
+# waste storage space on a backup file, set backupfile to an empty string,
+# or delete it periodically. These commands set the default values:
+#   zstyle :sticky-note notefile ~/.zsticky
+#   zstyle :sticky-note backupfile ~/.zsticky.backup
+#   zstyle :sticky-note maxnotes 1000
+# The other two styles; "theme" and "autocolour" are used for controlling
+# the appearance of notes, as explained below.
+
+# 3 methods are used to control the appearance of notes in the following
+# order of precedence:
+# 1) using command line options "-c COLOUR" to set the background colour,
+#    and "-B" to set blinking text (if available).
+# 2) using the "autocolour" style explained below
+# 3) using the "theme" style explained below
+
+# The "theme" style may be set to control the default appearance of notes.
+# The style is an associative array; the current set of values (defaults
+# in parens) are:
+#   bg    => name or ANSI escape for background color (yellow)
+#   fg    => name or ANSI escape for foreground color (black)
+#   color => ANSI escape for color scheme ($theme[bg]$theme[fg])
+#   reset => ANSI escape to restore "normal" colors
+# Values given as names are looked up in the $bg and $fg arrays from the
+# "colors" function.  If a "color" field is set, the "bg" and "fg" fields
+# are not used.  Example:
+#   zstyle :sticky-note theme \
+#     bg red \
+#     fg $fg_bold[yellow]
+
+# The "autocolour" style may be used to automatically set the background
+# colour for notes depending on their content. The style is an assoc array
+# with regexps for keys and colour names for values. When a new note is
+# created (and no colour is specified with the -c option), then the regexp
+# keys will be tested against the note until a match is found, and then the
+# corresponding background colour will be applied.
+# If no autocolour match is found then the "theme" style will be applied.
+
+# For backwards compatibility with an earlier version, the notefile may
+# also be named by the STICKYFILE variable (defaults to $HOME/.zsticky).
+# The number of notes stored may be given by STICKYSIZE (1000).
+# The backupfile may be given in STICKYBACKUPFILE.
+
+# Notes:
+# You can use sticky-note in combination with the zsh/sched module 
+# to make sure you don't forget important tasks, e.g. to display only red 
+# notes at the top of the terminal every hour:
+# 
+# sticky-note-red-hourly() {
+#        sticky-note -l -c red
+#        sched -o $(date --date "next hour" '+%H:%M:%S') zle sticky-note-red-hourly
+# }
+# zle -N sticky-note-red-hourly
+# sticky-note-red-hourly
+#
+
+# I encourage all you creative people to contribute enhancements ...
+
+emulate -LR zsh
+setopt nobanghist extendedhistory histignoredups noflowcontrol extendedglob localtraps
+local STICKYFILE=${STICKYFILE:-$HOME/.zsticky}
+local STICKYFILE=${STICKYBACKUPFILE:-$HOME/.zsticky.backup}
+local STICKYSIZE=${STICKYSIZE:-1000}
+local sticky stickyfile stickybackupfile stickysize
+
+zstyle -s :sticky-note notefile stickyfile || stickyfile=$STICKYFILE
+zstyle -s :sticky-note backupfile stickybackupfile || stickybackupfile=$STICKYBACKUPFILE
+zstyle -s :sticky-note maxnotes stickysize || stickysize=$STICKYSIZE
+# Set up keybindings (adapted from "zed")
+if ! bindkey -M sticky >& /dev/null; then
+    bindkey -N sticky main
+    bindkey -M sticky '^X^W' accept-line
+    bindkey -M sticky '^X^S' accept-line
+    bindkey -M sticky '^M^M' accept-line	# Two quick RETs ends note
+    bindkey -M sticky '^M' self-insert-unmeta
+fi
+if ! bindkey -M sticky-vicmd >& /dev/null; then
+    bindkey -N sticky-vicmd vicmd
+    bindkey -M sticky-vicmd ZZ accept-line
+fi
+# Helper function to swap command (2nd arg) in keymap (first arg) for another one (3rd arg).
+sticky-swap-keys() {
+    zle -N ${3}
+    local binding
+    while IFS= read -r binding; do
+	if [[ $binding == *\ ${2} ]]; then
+	    eval "${binding%${2}}${3}"
+	fi
+    done < <(bindkey -L -M ${1})
+}
+# Use this instead of send-break in vared since send-break deletes all sticky notes!
+sticky-note-vared-cancel() {
+    BUFFER=''
+    zle .accept-line
+}
+# It's not recommended to use zed for editing history for zsh versions <=5.9.2 since on return
+# HISTSIZE is set to the size of the history file that was edited and the internal history 
+# gets truncated to that many lines. A more serious problem is that if you call send-break 
+# by pressing "^G" inside zed then the history file you were editing gets truncated to a single
+# line. The following function fixes the latter problem when used instead of send-break and when
+# ZED_NO_HIST is set.
+zed-safe-break() {
+    [[ -n $ZED_NO_HIST ]] && unset HISTFILE
+    zle .send-break
+}
+# Change send-break keybindings to safe versions when editing sticky notes.
+sticky-swap-keys sticky send-break sticky-note-vared-cancel
+sticky-swap-keys sticky-vicmd send-break sticky-note-vared-cancel
+sticky-swap-keys zed send-break zed-safe-break
+
+local USAGE="Usage: sticky-note [OPTION]...
+Where [OPTION]s can be:
+
+ -h      	 display this help and exit
+ -b      	 install keymaps & keybindings, then exit
+ -l ...     	 list matching sticky notes (further options, e.g. -m 'PAT', are passed to fc for matching)
+ -d ...          delete matching sticky notes (futher options are passed to fc for matching)
+ -C COL ...      set colour of matching sticky notes to COL (futher options are passed to fc for matching)
+ -c COL  	 make a sticky note of a certain colour (with -l/d/C only print/delete/change notes of this colour)
+ -B      	 make sticky note blink (with -l/d/C only print/delete blinking notes)
+ -e              edit sticky-notes file
+
+With no option a new sticky note is prompted for, with colour specified by either the \"autocolour\",
+or \"theme\" zstyle for the \":sticky-note\" context.
+After entering the note text, press ^X^W, ^X^S or RET twice to save & exit, or ^C to abort."
+
+local c_opt c_arg Ch_opt Ch_arg d_opt e_opt l_opt B_opt 
+local -a fcargs fcopts=("-l")
+while [[ $# -gt 0 ]]; do
+    local arg="$1"
+    case "${arg}" in
+        -h)
+            print $USAGE
+            return 0
+            ;;
+        -l)
+	    if [[ -n ${Ch_opt} ]]; then
+		print -u2 "error: -C option is incompatible with -l option"
+		return 1
+	    fi
+            l_opt=true
+            shift
+            ;;
+        -d)
+	    if [[ -n ${l_opt} || -n ${Ch_opt} ]]; then
+		fcopts+=(-d)
+	    else
+		d_opt=true
+	    fi
+	    shift
+	    ;;
+	-C)
+	    if [[ -n ${l_opt} || -n ${d_opt} ]]; then
+		print -u2 "error: -l & -d options are incompatible with -C option"
+		return 1
+            # Consume the next item as the colour
+            elif [[ -n "$2" && "$2" != -* ]]; then
+		Ch_opt=true
+                Ch_arg="$2"
+                shift 2
+            else
+		print -u2 "error: the -C option requires a colour argument"
+		return 1
+            fi
+	    ;;
+        -e)
+            e_opt=true
+            shift
+            ;;
+	-b)
+	    return 0
+	    ;;
+        -c)
+            c_opt=true
+            # Consume the next item as the colour
+            if [[ -n "$2" && "$2" != -* ]]; then
+                c_arg="$2"
+                shift 2
+            else
+		print -u2 "error: the -c option requires a colour argument"
+		return 1
+            fi
+            ;;
+	-B)
+	    B_opt=true
+	    shift
+	    ;;
+	-m) # for fc
+	    if [[ -z ${l_opt} && -z ${d_opt} && -z ${Ch_opt} ]]; then
+		print -u2 "error: -m option should come after -l or -d option"
+		print $USAGE
+		return 1
+	    elif [[ -n "$2" && "$2" != -* ]]; then
+		fcopts+=(-m "${2}")
+		shift 2
+	    else
+		print -u2 "error: -m option needs an argument"
+		return 1
+	    fi
+	    ;;
+	-t) # for fc
+	    if [[ -z ${l_opt} && -z ${d_opt} && -z ${Ch_opt} ]]; then
+		print -u2 "error: -t option should come after -l or -d option"
+		print $USAGE
+		return 1
+	    elif [[ -n "$2" && "$2" != -* ]]; then
+		fcopts+=(-t "${2}")
+		shift 2
+	    else
+		print -u2 "error: -t option needs an argument"
+		return 1
+	    fi
+	    ;;
+        *)
+	    if [[ -n ${l_opt} || -n ${d_opt} || -n ${Ch_opt} ]]; then
+		# If it's not a recognized option save it, and let fc handle it later
+		if [[ "${arg}" == -[a-zA-Z] ]]; then
+		    fcopts+=("$arg")
+		else
+		    fcargs+=("$arg")
+		fi
+		shift
+	    else
+		print -u2 "error: invalid option ${arg}"
+		return 1
+	    fi
+            ;;
+    esac
+done
+# This function is needed before calling fc -l.
+# Assumes the existence of the fcargs array.
+sticky-note-resolve-offsets() {
+    # Fix problem with negative history offsets.
+    emulate -L zsh
+    zmodload -i zsh/parameter
+    local -a events=(${(@onk)history})
+    local latest=$HISTCMD
+    # In command mode enumeration can omit the newest loaded event so add it if necessary.
+    if ! zle && (( latest > ${events[-1]:-0} && ${+history[$latest]} )); then
+	events+=("$latest")
+    fi
+    (( ${#events} )) || return 1
+    local i offset
+    for (( i = 1; i <= ${#fcargs}; ++i )); do
+	if [[ ${fcargs[i]} == -<-> ]]; then
+	    offset=${fcargs[i]}
+	    if (( offset < -${#events} )); then
+		fcargs[i]=1
+	    else
+		fcargs[i]=${events[offset]}
+	    fi
+	fi
+    done
+    return 0
+}
+# Function to list sticky-notes.
+# Takes a single optional argument: a prefix string for a y/n prompt to process the notes
+# Assumes existence of parameters: B_opt, c_opt, fcopts, fcargs, theme, & matched_nums if prompt arg is non-nil
+sticky-note-list() {
+    local bcode ccode ccode2 defaultbg num prompt="${1}"
+    local -a matched_lines
+    print -nr "$theme[color]"
+    # get codes to use for filtering notes by blinking & colour
+    if [[ -n ${B_opt} ]]; then
+	bcode="${$(printf %q $(echoti blink))//(#b)*(\[[0-9]m)*/${match}}"
+    fi
+    if [[ -n ${c_opt} ]]; then
+	ccode="${$(printf %q ${bg[${bgcolour}]})//(#b)*(\[[0-9][0-9]m)*/${match}}"
+	ccode2="$(printf %q $ccode)"
+	defaultbg="$(printf %q ${theme[bg]#*$'\e'})"
+    fi
+    sticky-note-resolve-offsets || return $?
+    if [[ -n $prompt ]]; then
+	# ensure -n is not in fcopts so event numbers are printed when prompting
+	fcopts=(${${fcopts:#-n}[@]})
+    fi
+    # use read/print loop to interpolate "\n" in history lines
+    fc "${fcopts[@]}" "${fcargs[@]}" | while read -r sticky; do
+	if [[ -z ${c_opt} && -z ${B_opt} ]] || [[ ${sticky} == [^^]#'^['"${ccode}"*"${bcode}" ]] \
+	       || [[ -n $c_opt && -z $B_opt && "${defaultbg}" == "${ccode2}" && ${sticky} != [^^]#'^['* ]]; then
+	    print -b -- "${sticky}"
+	    if [[ -n "${prompt}" ]]; then
+		num=${${(z)sticky}[1]}
+		matched_nums+=("$num")
+		matched_lines+=("$sticky")
+	    fi
+	fi
+    done
+    print -nr "$theme[reset]"    
+    if [[ -n "${prompt}" ]]; then
+	if (( ${#matched_nums} != 0 )); then
+	    if read -q "?${prompt} these ${#matched_nums} note(s)? [y/n] "; then
+		return 0
+	    else
+		print -u2 "\nAborted."
+		return 1
+	    fi
+	fi
+    fi
+}
+
+# Function to change colour of selected notes 
+# Assumes ${matched_nums[@]} is already defined as an array of indices of notes to be changed,
+# and $Ch_arg contains the name of the new colour.
+sticky-note-change-colour() {
+    local -a selected_ts
+    local num ts
+    # get the new background colour
+    local newbg=
+    if [[ ! $Ch_arg == [Nn]one ]]; then
+	if (( ! ${+bg[$Ch_arg]} )); then
+	    print -u2 -- "\nerror: unknown background colour: $Ch_arg"
+	    return 1
+	else
+	    newbg=${bg[$Ch_arg]}
+	fi
+    fi
+    # get the timestamps of the selected notes
+    for num in "${matched_nums[@]}"; do
+	ts=${=$(fc -ln -t '%s' "$num" "$num")[1]} || return 1
+	selected_ts+=$ts
+    done
+    # read notes into records array
+    local -a records
+    local line record
+    while IFS= read -r line; do
+	if [[ $line == :\ * ]]; then
+            [[ -n $record ]] && records+=("$record")
+            record=$line
+	else
+            record+=$'\n'"$line"
+	fi
+    done < "$stickyfile"
+    [[ -n $record ]] && records+=("$record")
+    # regexps for matching colour codes
+    local sgr_re='^'$'\e''\[[0-9;]*m'
+    local bg_re='^'$'\e''\[(4[0-7]|49|10[0-7])m$'
+    local MATCH elapsed text sequence
+    local -a match new_records
+    local -i i numfound
+    # loop over all records/notes and extract parts (timestamp, elapsed time, text) 
+    for record in "${records[@]}"; do
+	if [[ $record == (#b):\ ([0-9]##):([0-9]#)\;(*) ]]; then
+            ts=$match[1]
+	    elapsed=$match[2]
+            text=$match[3]
+	else
+            # unparsable record: leave it untouched
+            new_records+=("$record")
+            continue
+	fi
+	# if the timestamp of this note/record corresponds to a selected one
+	if (( ${selected_ts[(Ie)$ts]} )); then
+            (( numfound++ ))
+            local prefix=''
+	    # strip the old background colour
+            while [[ $text =~ $sgr_re ]]; do
+		sequence=$MATCH
+		text=${text#"$sequence"}
+		[[ $sequence =~ $bg_re ]] || prefix+=$sequence
+            done
+	    # add the new background colour
+            text="${newbg}${prefix}${text}${theme[color]}\e[25m"
+            new_records+=(": $ts:$elapsed;$text")
+	else
+            new_records+=("$record")
+	fi
+    done
+    if (( numfound != ${#matched_nums} )); then
+	print -u2 -- "\nerror: matched $numfound of ${#matched_nums} selected notes in file"
+	return 1
+    fi
+    # write new lines to temp file, then overwrite stickyfile
+    local temporary
+    temporary=$(mktemp "${stickyfile}.XXXXXX") || return 1
+    {
+	for record in "${new_records[@]}"; do
+            print -r -- "$record"
+	done
+    } > "$temporary"
+    if command mv -f -- "$temporary" "$stickyfile"; then
+	print -- "\nRecoloured ${#matched_nums} note(s)."
+    else
+	command rm -f -- "$temporary"
+	return 1
+    fi
+    return 0
+}
+
+# Look up color theme
+local -A theme
+(($+bg && $+fg)) || { autoload -Uz colors; colors }
+
+zstyle -m :sticky-note theme '*' || {
+    zstyle :sticky-note theme bg yellow fg black
+}
+zstyle -a :sticky-note theme theme
+local fgcolour=${theme[fg]}
+local bgcolour=${theme[bg]}
+(( ${+fg[${fgcolour}]} )) && theme[fg]=$fg[${fgcolour}]
+(( ${+bg[${bgcolour}]} )) && theme[bg]=$bg[${bgcolour}]
+(( ${+theme[color]} )) || theme[color]=${theme[bg]}${theme[fg]}
+(( ${+theme[reset]} )) || theme[reset]=${reset_color}
+# If -c <COL> option is supplied use <COL> as background colour
+if [[ -n ${c_opt} ]]; then
+    bgcolour=${c_arg}
+    theme[newcolor]="${bg[${bgcolour}]}${theme[fg]}"
+else
+    theme[newcolor]=$theme[color]
+fi
+# blink text if -B option supplied
+if [[ -n ${B_opt} ]]; then
+    theme[newcolor]+="$(echoti blink)"
+fi
+
+local -a matched_nums matched_patterns
+local num HISTORY_IGNORE
+# If invoked as a widget, behave a bit like run-help
+if zle; then
+    zmodload -i zsh/parameter
+    if [[ -n ${l_opt} || -n ${Ch_opt} || -n ${d_opt} || $functrace == *zle-line-init:* ]]; then
+	trap "fc -P && return 1" SIGINT SIGQUIT SIGHUP
+	fc -ap $stickyfile $stickysize $stickysize
+	echoti sc
+	echoti home
+	if [[ -n ${Ch_opt} ]]; then # CHANGE COLOUR OF NOTES.
+	    sticky-note-list "Change colour to $Ch_arg" && sticky-note-change-colour || return $?
+	elif [[ -n ${d_opt} ]]; then # DELETE NOTES.
+	    # get matching notes
+	    if sticky-note-list "Delete"; then
+		# apply the deletion or recolouring and rewrite $stickyfile
+		for num in "${matched_nums[@]}"; do
+		    matched_patterns+=("${(b)history[$num]}")
+		done
+		HISTORY_IGNORE="(${(j:|:)matched_patterns})"
+		fc -W "$stickyfile"
+	    fi
+	else # LIST NOTES
+	    sticky-note-list || return $?
+	fi
+	echoti rc
+    elif [[ $CONTEXT = (cont|select|vared) ]]; then
+	# Don't run sticky-note from within a continuation line, vared, or a select prompt
+	# where push-line & accept-line behave badly.
+	zle -M "No stickies during ${${(z)PREBUFFER}[1]:-$CONTEXT}, sorry"
+	zle .beep
+	zle -R
+    else
+	# Push the contents of the command line onto the stack (they will be popped back later),
+	# and invoke sticky-note as a command instead of a widget (more robust than running within zle).
+	zle .push-line
+	if [[ -n ${e_opt} || $WIDGET == sticky-note-edit ]]; then
+	    BUFFER="sticky-note -e" # EDIT NOTES
+	else
+	    BUFFER=sticky-note # CREATE NOTE
+	fi
+	zle .accept-line
+    fi
+    return 0
+fi
+# When invoked as a command with the -e option edit $STICKYFILE.
+if [[ -n ${e_opt} ]]; then
+    trap 'return 1' SIGINT SIGQUIT SIGHUP
+    local ZED_NO_HIST=1 oldhistsize=$HISTSIZE editor_status=1
+    {
+        ${=${FCEDIT:-${EDITOR:-vi}}} "${stickyfile}"
+        editor_status=$?
+    } always {
+        HISTSIZE=$oldhistsize
+    }
+    return $editor_status
+fi
+# Invoked as a command without -e option, behave like zed, but write a history file
+fc -ap $stickyfile $stickysize $stickysize
+if [[ -n ${l_opt} ]]; then # LIST NOTES
+    sticky-note-list || return $?
+elif [[ -n ${Ch_opt} ]]; then # CHANGE COLOUR OF NOTES
+    trap "fc -P && return 1" SIGINT SIGQUIT SIGHUP
+    sticky-note-list "Change colour to $Ch_arg" && sticky-note-change-colour || return $?
+elif [[ -n ${d_opt} ]]; then # DELETE NOTES
+    trap "fc -P && return 1" SIGINT SIGQUIT SIGHUP
+    if sticky-note-list "Delete"; then
+	for num in "${matched_nums[@]}"; do
+            matched_patterns+=("${(b)history[$num]}")
+	done
+	HISTORY_IGNORE="(${(j:|:)matched_patterns})"
+	fc -W "$stickyfile"
+    fi
+else # CREATE NOTE
+    typeset -a zle_highlight_old=($zle_highlight)
+    zle_highlight=(default:bg=${bgcolour},fg=${fgcolour})
+    # Without this line, pressing Ctrl+c will truncate the $stickyfile
+    trap "fc -W $stickyfile && zle_highlight=($zle_highlight_old) && break" SIGINT SIGQUIT SIGHUP
+    # Edit a new sticky note and add it to the stickyfile
+    while vared -h -e -p "%{$theme[newcolor]%}" -M sticky -m sticky-vicmd sticky; do
+	{
+	    if [[ -n "${sticky}" ]]; then
+		local ncolour="${theme[newcolor]}"
+		# use autocolour if available unless the -c option was used to specify a colour
+		if zmodload -e zsh/regex && [[ -z ${c_opt} ]]; then
+		    local -A rxcolours
+		    zstyle -a ':sticky-note' autocolour rxcolours
+		    for rx in ${(k)rxcolours}; do
+			if [[ "${sticky}" =~ ${rx} ]]; then
+			    ncolour="${bg[${rxcolours[${rx}]}]}"
+			    break
+			fi
+		    done
+		fi
+		print -s -- "${ncolour}${sticky}${theme[color]}\e[25m"
+		if [[ -n $stickybackupfile ]]; then
+		    print -- ": $(date +%s):0;${ncolour}${sticky}${theme[color]}\e[25m" >> $stickybackupfile
+		fi
+	    fi
+	} always {
+	    (( TRY_BLOCK_ERROR = 0 ))
+	} && break
+	echo -n -e '\a'
+    done
+    zle_highlight=($zle_highlight_old)
+fi
+return 0
+
