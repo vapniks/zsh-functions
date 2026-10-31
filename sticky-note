@@ -110,7 +110,7 @@
 emulate -LR zsh
 setopt nobanghist extendedhistory histignoredups noflowcontrol extendedglob localtraps
 local STICKYFILE=${STICKYFILE:-$HOME/.zsticky}
-local STICKYFILE=${STICKYBACKUPFILE:-$HOME/.zsticky.backup}
+local STICKYBACKUPFILE=${STICKYBACKUPFILE-$HOME/.zsticky.backup}
 local STICKYSIZE=${STICKYSIZE:-1000}
 local sticky stickyfile stickybackupfile stickysize
 
