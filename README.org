@@ -29,6 +29,7 @@ By default this is "--height=100% --preview-window=down:wrap"
 
 ** sticky-note
 This file defines a function for creating notes which can be displayed in the terminal in different colours.
+It is an updated version of the one that comes with the zsh distribution.
 Add the file to one of the directories in your fpath, and add the following line to your .zshrc
 #+BEGIN_SRC sh
 autoload -Uz sticky-note
