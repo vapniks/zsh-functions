@@ -57,8 +57,9 @@
 #   zstyle :sticky-note maxnotes 1000
 # The "prompt" zstyle defines a prompt string to use in vared when creating
 # a new note. By default it is set to "Note %h:" (%h expands to the index of
-# the new note). The other two styles; "theme" and "autocolour" are used for
-# controlling the appearance of notes, as explained below.
+# the new note), and you can set it to the empty string for no prompt.
+# The other two styles; "theme" and "autocolour" are used for controlling
+# the appearance of notes, as explained below.
 
 # 3 methods are used to control the appearance of notes in the following
 # order of precedence:

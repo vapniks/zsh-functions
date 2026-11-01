@@ -27,3 +27,14 @@ bindkey "<KEY>" fzf-apropos
 Options for fzf can be set with: zstyle ':fzf-apropos:' options "<OPTIONS>"\\
 By default this is "--height=100% --preview-window=down:wrap"
 
+** sticky-note
+This file defines a function for creating notes which can be displayed in the terminal in different colours.
+Add the file to one of the directories in your fpath, and add the following line to your .zshrc
+#+BEGIN_SRC sh
+autoload -Uz sticky-note
+#+END_SRC
+To see help notes on how to invoke the function do:
+#+BEGIN_SRC sh
+sticky-note -h
+#+END_SRC
+For further information on how to customize it read the documentation in the file.
